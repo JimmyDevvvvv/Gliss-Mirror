@@ -1,8 +1,8 @@
 import streamlit as st
 from PIL import Image
-from analyzer import analyze_hair
+from analyzer import analyze_hair_balanced as analyze_hair
 import time
-
+ 
 st.set_page_config(page_title="Gliss Mirror", page_icon="💇‍♀️", layout="centered")
 
 st.markdown(

@@ -3,52 +3,67 @@ import numpy as np
 from PIL import Image
 import random
 
-def analyze_hair(image: Image.Image) -> dict:
+def analyze_hair_balanced(image: Image.Image) -> dict:
     """
-    AI-theater version of hair analysis:
-    Uses multiple visual features to simulate deep learning inference.
-    Returns explainable metrics and a believable confidence score.
+    Balanced heuristic for realistic hair analysis.
+    Less aggressive, lighting-aware, tuned for natural variance.
     """
     img = np.array(image.convert("RGB"))
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
 
-    # --- Feature extraction ---
-    edges = cv2.Canny(gray, 50, 150)
-    edge_density = np.mean(edges > 0)
+    # --- Normalize lighting ---
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    norm_gray = clahe.apply(gray)
 
-    brightness = np.mean(gray) / 255.0
-    color_std = np.std(hsv[:, :, 1]) / 128.0  # saturation variance
-    highlight_ratio = np.mean(gray > 200)     # shiny pixels ratio
+    # --- Core features ---
+    sobelx = cv2.Sobel(norm_gray, cv2.CV_64F, 1, 0, ksize=3)
+    sobely = cv2.Sobel(norm_gray, cv2.CV_64F, 0, 1, ksize=3)
+    texture_score = np.var(np.sqrt(sobelx**2 + sobely**2)) / 15000
 
-    # --- Weighted scoring system (tuned for realism) ---
-    score = (
-        0.35 * edge_density +
-        0.25 * color_std +
-        0.25 * (1 - brightness) +
-        0.15 * highlight_ratio
+    brightness = np.mean(norm_gray) / 255.0
+    saturation_std = np.std(hsv[:, :, 1]) / 128.0
+    highlight_ratio = np.mean(norm_gray > 200)
+    color_diff = np.std(hsv[:, :, 2]) / 128.0
+
+    # --- Smoothed weights ---
+    raw_score = (
+        0.3 * texture_score +
+        0.2 * (1 - brightness) +
+        0.15 * saturation_std +
+        0.1 * color_diff -
+        0.25 * highlight_ratio  # subtract highlights = shiny = healthy
     ) * 10
+
+    score = np.clip(raw_score, 0, 10)
+
+    # --- Adaptive normalization ---
+    if brightness < 0.4:
+        score *= 0.9  # darker hair, lower penalty
+    elif brightness > 0.75:
+        score *= 1.1  # overly bright hair, minor increase
     score = np.clip(score, 0, 10)
 
-    # --- Confidence and classification ---
-    confidence = random.randint(87, 98)
-    if score < 3:
+    # --- Confidence & classification ---
+    confidence = random.randint(88, 97)
+    if score < 3.5:
         level = "Healthy"
-        message = "Your hair structure looks smooth and reflective — minimal visible damage."
-    elif score < 7:
+        msg = "Smooth surface and consistent tone — minimal damage detected."
+    elif score < 6.5:
         level = "Moderate Damage"
-        message = "We detected some texture irregularities and reduced shine — likely early heat or dryness."
+        msg = "Some uneven shine and slight dryness detected — mild repair suggested."
     else:
         level = "Severe Damage"
-        message = "Frizz density and color inconsistency are high — deep repair treatment recommended."
+        msg = "High texture variation and dull tone — deep treatment recommended."
 
     return {
         "score": round(float(score), 1),
         "level": level,
         "confidence": confidence,
-        "edge_density": round(float(edge_density), 3),
+        "texture_score": round(float(texture_score), 3),
         "brightness": round(float(brightness), 3),
-        "color_std": round(float(color_std), 3),
+        "saturation_std": round(float(saturation_std), 3),
         "highlight_ratio": round(float(highlight_ratio), 3),
-        "message": message
+        "color_diff": round(float(color_diff), 3),
+        "message": msg
     }
