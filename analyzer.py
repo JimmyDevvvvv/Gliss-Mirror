@@ -3,28 +3,44 @@ import numpy as np
 from PIL import Image
 import pandas as pd
 import os
+from functools import lru_cache
+from typing import Dict, Optional
 
-# Load the dataset once at module level
+# --------------------------------------------------------------------
+# CONFIG
+# --------------------------------------------------------------------
 DATASET_PATH = "Hackathon_dataset.xlsx"
-dataset = None
 
-def load_dataset():
-    """Load the Gliss product dataset."""
-    global dataset
-    if dataset is None and os.path.exists(DATASET_PATH):
-        try:
-            dataset = pd.read_excel(DATASET_PATH)
-            # Clean column names
-            dataset.columns = dataset.columns.str.strip()
-            print(f"✓ Loaded {len(dataset)} Gliss products from dataset")
-        except Exception as e:
-            print(f"Warning: Could not load dataset: {e}")
-    return dataset
 
-def analyze_hair_balanced(image: Image.Image) -> dict:
+# --------------------------------------------------------------------
+# DATA LOADING
+# --------------------------------------------------------------------
+@lru_cache(maxsize=1)
+def load_dataset() -> Optional[pd.DataFrame]:
     """
-    Enhanced hair analysis using Gliss product dataset.
-    Combines computer vision with intelligent product matching.
+    Load the Gliss product dataset once and cache it in memory.
+    """
+    if not os.path.exists(DATASET_PATH):
+        print(f"⚠️ Dataset not found at {DATASET_PATH}")
+        return None
+
+    try:
+        df = pd.read_excel(DATASET_PATH)
+        df.columns = df.columns.str.strip()
+        print(f"✓ Loaded {len(df)} Gliss products from dataset")
+        return df
+    except Exception as e:
+        print(f"⚠️ Could not load dataset: {e}")
+        return None
+
+
+# --------------------------------------------------------------------
+# MAIN ANALYSIS FUNCTION
+# --------------------------------------------------------------------
+def analyze_hair_balanced(image: Image.Image) -> Dict:
+    """
+    Perform advanced hair damage analysis and recommend Gliss products.
+    Framework-agnostic: no Streamlit dependencies.
     """
     img = np.array(image.convert("RGB"))
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
@@ -54,7 +70,6 @@ def analyze_hair_balanced(image: Image.Image) -> dict:
         0.1 * color_diff -
         0.25 * highlight_ratio
     ) * 10
-
     score = np.clip(raw_score, 0, 10)
 
     # --- Adaptive normalization ---
@@ -64,7 +79,7 @@ def analyze_hair_balanced(image: Image.Image) -> dict:
         score *= 1.1
     score = np.clip(score, 0, 10)
 
-    # --- Determine hair texture from image analysis ---
+    # --- Determine texture ---
     if edge_density > 15:
         detected_texture = "Coarse"
     elif edge_density < 8:
@@ -72,63 +87,46 @@ def analyze_hair_balanced(image: Image.Image) -> dict:
     else:
         detected_texture = "Medium"
 
-    # --- Classification & Product Matching ---
-    df = load_dataset()
-    confidence = 92
-    
+    # --- Classification ---
     if score < 3.5:
-        level = "Healthy"
-        care_level = "Gentle"
-        hair_type = "Normal & Fine"
-        primary_concern = "Moisture"
+        level, care_level = "Healthy", "Gentle"
+        hair_type, primary_concern = "Normal & Fine", "Moisture"
         msg = "Smooth surface and consistent tone — minimal damage detected."
     elif score < 6.5:
-        level = "Moderate Damage"
-        care_level = "Medium"
-        hair_type = "Dry, Damaged"
-        primary_concern = "Nourishment"
+        level, care_level = "Moderate Damage", "Medium"
+        hair_type, primary_concern = "Dry, Damaged", "Nourishment"
         msg = "Some uneven shine and slight dryness detected — mild repair suggested."
     else:
-        level = "Severe Damage"
-        care_level = "Deep Care"
-        hair_type = "Heavily Damaged & Dry"
-        primary_concern = "Breakage"
+        level, care_level = "Severe Damage", "Deep Care"
+        hair_type, primary_concern = "Heavily Damaged & Dry", "Breakage"
         msg = "High texture variation and dull tone — deep treatment recommended."
 
-    # --- Match with Gliss Product Dataset ---
-    recommended_product = None
-    product_line = None
-    key_ingredients = None
-    benefit = None
-    
+    # --- Product Matching ---
+    df = load_dataset()
+    confidence = 90
+    recommended_product, key_ingredients, benefit = None, None, None
+
     if df is not None:
         try:
-            # Filter products by care level
-            care_level_code = {"Gentle": 1, "Medium": 2, "Deep Care": 3}
-            target_code = care_level_code.get(care_level, 2)
-            
+            care_level_map = {"Gentle": 1, "Medium": 2, "Deep Care": 3}
+            target_code = care_level_map.get(care_level, 2)
+
             matched = df[df['Care Level Code'] == target_code]
-            
-            # Further filter by texture if possible
             texture_matched = matched[matched['Hair Texture'] == detected_texture]
-            if len(texture_matched) == 0:
+            if texture_matched.empty:
                 texture_matched = matched
-            
-            # Get shampoo recommendation
+
             shampoo = texture_matched[texture_matched['Product Type'] == 'Shampoo']
-            if len(shampoo) > 0:
-                product_row = shampoo.iloc[0]
-                recommended_product = product_row['Product']
-                product_line = recommended_product
-                key_ingredients = product_row['Key Ingredients']
-                benefit = product_row['Benefit from Ingredient']
-                
-                # Update confidence based on dataset match
+            if not shampoo.empty:
+                row = shampoo.iloc[0]
+                recommended_product = row['Product']
+                key_ingredients = row['Key Ingredients']
+                benefit = row['Benefit from Ingredient']
                 confidence = 95
         except Exception as e:
-            print(f"Product matching warning: {e}")
+            print(f"⚠️ Product matching error: {e}")
 
-    # Default to rule-based if dataset matching fails
+    # --- Default fallback ---
     if recommended_product is None:
         if score < 3:
             recommended_product = "Aqua Revive"
@@ -163,18 +161,26 @@ def analyze_hair_balanced(image: Image.Image) -> dict:
         "care_level": care_level
     }
 
-def get_product_details(product_name: str) -> dict:
-    """Get full product line details from dataset."""
-    df = load_dataset()
-    if df is not None and product_name:
-        products = df[df['Product'] == product_name]
-        if len(products) > 0:
-            return {
-                "shampoo": products[products['Product Type'] == 'Shampoo'].to_dict('records'),
-                "conditioner": products[products['Product Type'] == 'Conditioner'].to_dict('records')
-            }
-    return None
 
-def get_all_products() -> pd.DataFrame:
-    """Get the complete product dataset."""
+# --------------------------------------------------------------------
+# PRODUCT DETAILS FUNCTIONS
+# --------------------------------------------------------------------
+def get_product_details(product_name: str) -> Optional[Dict]:
+    """Return shampoo/conditioner details for a product name."""
+    df = load_dataset()
+    if df is None or not product_name:
+        return None
+
+    products = df[df['Product'] == product_name]
+    if products.empty:
+        return None
+
+    return {
+        "shampoo": products[products['Product Type'] == 'Shampoo'].to_dict('records'),
+        "conditioner": products[products['Product Type'] == 'Conditioner'].to_dict('records')
+    }
+
+
+def get_all_products() -> Optional[pd.DataFrame]:
+    """Return the complete Gliss product dataset."""
     return load_dataset()

@@ -216,3 +216,4 @@ else:
 
         with st.expander("📋 View Raw Scan History"):
             st.dataframe(df)
+
