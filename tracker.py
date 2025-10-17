@@ -1,9 +1,13 @@
 import streamlit as st
 from PIL import Image
 from analyzer import analyze_hair_balanced as analyze_hair, get_product_details
+import tracker  # 🆕 Import progress tracker
 import time
 import pandas as pd
-import tracker  # ✅ make sure tracker.py exists in the same folder!
+import json
+import datetime
+import os
+from typing import List, Dict
 
 # ------------------------------
 # PAGE CONFIG & STYLING
@@ -31,9 +35,9 @@ st.markdown('<p class="title">💇‍♀️ Gliss Mirror</p>', unsafe_allow_html
 st.caption("AI-Powered Hair Damage Assessment with Smart Product Matching")
 
 # ------------------------------
-# SIDEBAR NAVIGATION (✅ FIXED duplicate ID issue)
+# SIDEBAR NAVIGATION
 # ------------------------------
-tab = st.sidebar.radio("🧭 Navigation", ["New Scan", "Progress History"], key="nav_tab")
+tab = st.sidebar.radio("🧭 Navigation", ["New Scan", "Progress History"])
 
 # ------------------------------
 # TAB 1: NEW SCAN
@@ -43,7 +47,7 @@ if tab == "New Scan":
 
     if uploaded_file:
         image = Image.open(uploaded_file)
-        st.image(image, caption="Your Hair Sample", width='stretch')  # future-proof
+        st.image(image, caption="Your Hair Sample", use_container_width=True)
 
         with st.spinner("✨ Analyzing hair texture and matching with Gliss products..."):
             time.sleep(2.5)
@@ -88,19 +92,30 @@ if tab == "New Scan":
             unsafe_allow_html=True,
         )
 
-        # Product Details
+        # Full product details
         product_details = get_product_details(result['recommended_product'])
+
         if product_details:
             st.markdown("#### 📦 Complete Care Routine:")
+
             if product_details["shampoo"]:
                 shampoo = product_details["shampoo"][0]
                 st.markdown(
-                    f"**Shampoo - {shampoo['Size']}**  \nGoal: {shampoo['Goal']}  \nFragrance: {shampoo['Fragrance']}"
+                    f"""
+                    **Shampoo - {shampoo['Size']}**
+                    - Goal: {shampoo['Goal']}
+                    - Fragrance: {shampoo['Fragrance']}
+                    """
                 )
+
             if product_details["conditioner"]:
                 conditioner = product_details["conditioner"][0]
                 st.markdown(
-                    f"**Conditioner - {conditioner['Size']}**  \nGoal: {conditioner['Goal']}  \nFragrance: {conditioner['Fragrance']}"
+                    f"""
+                    **Conditioner - {conditioner['Size']}**
+                    - Goal: {conditioner['Goal']}
+                    - Fragrance: {conditioner['Fragrance']}
+                    """
                 )
 
         # Nutrient Profile
@@ -125,8 +140,10 @@ if tab == "New Scan":
                 else:
                     st.write("Specialized formula with targeted active ingredients")
 
-        # ✅ SAVE TO PROGRESS TRACKER
-        if st.button("💾 Save to Progress Tracker", key="save_btn"):
+        # ------------------------------
+        # 🆕 SAVE TO PROGRESS TRACKER BUTTON
+        # ------------------------------
+        if st.button("💾 Save to Progress Tracker"):
             tracker.save_scan(result)
             st.success("✅ Scan saved to history!")
 
@@ -145,16 +162,12 @@ if tab == "New Scan":
 else:
     st.markdown("## 📊 Your Progress History")
 
-    # ✅ SAFE IMPORT — always reference correct tracker.py
-    try:
-        history = tracker.load_history()
-    except Exception as e:
-        st.error(f"⚠️ Error loading history: {e}")
-        history = []
+    history = tracker.load_history()
 
     if not history:
         st.info("No scans saved yet. Perform your first analysis to start tracking progress!")
     else:
+        # Convert to DataFrame
         df = pd.DataFrame(history)
         df["timestamp"] = pd.to_datetime(df["timestamp"])
         df = df.sort_values("timestamp")
@@ -173,7 +186,7 @@ else:
         with col4:
             st.metric("Trend", stats["trend"])
 
-        # Chart
+        # Line Chart
         st.markdown("### 📈 Damage Score Over Time")
         st.line_chart(df, x="timestamp", y="damage_score")
 
@@ -191,6 +204,7 @@ else:
                 st.write(f"Level: {first['level']}")
                 st.write(f"Texture: {first['detected_texture']}")
                 st.write(f"Product: {first['recommended_product']}")
+
             with col2:
                 st.markdown("#### 🕒 Latest Scan")
                 st.write(f"Score: {latest['damage_score']}")
@@ -198,13 +212,88 @@ else:
                 st.write(f"Texture: {latest['detected_texture']}")
                 st.write(f"Product: {latest['recommended_product']}")
 
+            # Trend Result
             if delta < -1:
-                st.success(f"🏆 Improved by {abs(delta)} points! 🎉")
+                st.success(f"🏆 Improved by {abs(delta)} points! Great progress! 🎉")
                 st.balloons()
             elif delta > 1:
                 st.warning(f"⚠️ Worsened by {abs(delta)} points — consider a deeper care routine.")
             else:
                 st.info("No significant change detected yet.")
 
+        # Raw data expander
         with st.expander("📋 View Raw Scan History"):
             st.dataframe(df)
+
+# ------------------------------
+# TRACKER FUNCTIONS
+# ------------------------------
+HISTORY_FILE = "scan_history.json"
+
+def save_scan(result: Dict) -> None:
+    """Save a scan result to the history file."""
+    try:
+        # Add timestamp
+        scan_record = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "damage_score": result["score"],
+            "level": result["level"],
+            "detected_texture": result["detected_texture"],
+            "recommended_product": result["recommended_product"]
+        }
+        
+        # Load existing history
+        history = load_history()
+        history.append(scan_record)
+        
+        # Save updated history
+        with open(HISTORY_FILE, "w") as f:
+            json.dump(history, f, indent=2)
+            
+    except Exception as e:
+        raise Exception(f"Failed to save scan: {e}")
+
+def load_history() -> List[Dict]:
+    """Load scan history from file."""
+    try:
+        if os.path.exists(HISTORY_FILE):
+            with open(HISTORY_FILE, "r") as f:
+                return json.load(f)
+        return []
+    except Exception as e:
+        raise Exception(f"Failed to load history: {e}")
+
+def get_stats() -> Dict:
+    """Calculate statistics from scan history."""
+    history = load_history()
+    if not history:
+        return {
+            "avg": 0,
+            "best": 0,
+            "worst": 0,
+            "trend": "No data"
+        }
+    
+    scores = [scan["damage_score"] for scan in history]
+    return {
+        "avg": round(sum(scores) / len(scores), 1),
+        "best": min(scores),
+        "worst": max(scores),
+        "trend": "⬆️ Improving" if len(scores) > 1 and scores[-1] < scores[0] else "⬇️ Declining"
+    }
+
+def get_comparison() -> Dict:
+    """Compare first and latest scans."""
+    history = load_history()
+    if len(history) < 2:
+        return {"first": None, "latest": None, "delta": 0}
+    
+    sorted_history = sorted(history, key=lambda x: x["timestamp"])
+    first = sorted_history[0]
+    latest = sorted_history[-1]
+    
+    return {
+        "first": first,
+        "latest": latest,
+        "delta": latest["damage_score"] - first["damage_score"]
+    }
