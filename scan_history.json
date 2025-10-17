@@ -12,5 +12,12 @@
     "level": "Moderate Damage",
     "detected_texture": "Coarse",
     "recommended_product": "Oil Nutritive"
+  },
+  {
+    "timestamp": "2025-10-17T11:36:14.093436",
+    "damage_score": 4.5,
+    "level": "Moderate Damage",
+    "detected_texture": "Coarse",
+    "recommended_product": "Oil Nutritive"
   }
 ]

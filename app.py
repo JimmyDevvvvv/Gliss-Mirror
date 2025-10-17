@@ -33,13 +33,21 @@ st.caption("AI-Powered Hair Damage Assessment with Smart Product Matching")
 # ------------------------------
 # SIDEBAR NAVIGATION (✅ FIXED duplicate ID issue)
 # ------------------------------
-tab = st.sidebar.radio("🧭 Navigation", ["New Scan", "Progress History"], key="nav_tab")
+tab = st.sidebar.radio(
+    "🧭 Navigation", 
+    ["New Scan", "Progress History"],
+    key="nav_radio"  # Add this line
+)
 
 # ------------------------------
 # TAB 1: NEW SCAN
 # ------------------------------
 if tab == "New Scan":
-    uploaded_file = st.file_uploader("📸 Upload or capture your hair image", type=["jpg", "jpeg", "png"])
+    uploaded_file = st.file_uploader(
+        "📸 Upload or capture your hair image", 
+        type=["jpg", "jpeg", "png"],
+        key="hair_image_uploader"  # Add this line
+    )
 
     if uploaded_file:
         image = Image.open(uploaded_file)

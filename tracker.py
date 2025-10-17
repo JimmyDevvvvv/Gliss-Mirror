@@ -233,7 +233,6 @@ HISTORY_FILE = "scan_history.json"
 def save_scan(result: Dict) -> None:
     """Save a scan result to the history file."""
     try:
-        # Add timestamp
         scan_record = {
             "timestamp": datetime.datetime.now().isoformat(),
             "damage_score": result["score"],
@@ -242,11 +241,9 @@ def save_scan(result: Dict) -> None:
             "recommended_product": result["recommended_product"]
         }
         
-        # Load existing history
         history = load_history()
         history.append(scan_record)
         
-        # Save updated history
         with open(HISTORY_FILE, "w") as f:
             json.dump(history, f, indent=2)
             
