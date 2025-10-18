@@ -142,7 +142,7 @@ def analyze_hair_balanced(image: Image.Image) -> Dict:
             benefit = "Repairing Damage"
 
     return {
-        "score": round(float(score), 1),
+        "damage_score": round(float(score), 1),  # ✅ Flutter-friendly key name
         "level": level,
         "confidence": confidence,
         "edge_density": round(float(edge_density), 2),

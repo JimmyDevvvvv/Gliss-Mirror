@@ -1,37 +1,11 @@
 [
-  {
-    "timestamp": "2025-10-17T11:28:44.271619",
-    "damage_score": 6.9,
-    "level": "Severe Damage",
-    "detected_texture": "Coarse",
-    "recommended_product": "Ultimate Repair"
-  },
-  {
-    "timestamp": "2025-10-17T11:29:18.863215",
-    "damage_score": 4.5,
-    "level": "Moderate Damage",
-    "detected_texture": "Coarse",
-    "recommended_product": "Oil Nutritive"
-  },
-  {
-    "timestamp": "2025-10-17T11:36:14.093436",
-    "damage_score": 4.5,
-    "level": "Moderate Damage",
-    "detected_texture": "Coarse",
-    "recommended_product": "Oil Nutritive"
-  },
-  {
-    "timestamp": "2025-10-17T11:55:54.863351",
-    "damage_score": 6.9,
-    "level": "Severe Damage",
-    "detected_texture": "Coarse",
-    "recommended_product": "Ultimate Repair"
-  },
-  {
-    "timestamp": "2025-10-17T12:32:41.315964",
-    "damage_score": 6.9,
-    "level": "Severe Damage",
-    "detected_texture": "Coarse",
-    "recommended_product": "Ultimate Repair"
-  }
+    {
+        "timestamp": "2025-10-18T05:36:13.778998",
+        "damage_score": 6.9,
+        "level": "Severe Damage",
+        "detected_texture": "Coarse",
+        "recommended_product": "Ultimate Repair",
+        "primary_concern": "Breakage",
+        "care_level": "Deep Care"
+    }
 ]

@@ -1,8 +1,43 @@
 from ollama import Client
 from analyzer import get_all_products
 import pandas as pd
+import re
 
 client = Client()
+
+def clean_text(text: str) -> str:
+    """
+    Remove ALL emojis, special characters, and markdown formatting.
+    Returns clean, plain text only.
+    """
+    # Remove emojis (comprehensive Unicode ranges)
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map symbols
+        "\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        "\U00002702-\U000027B0"  # dingbats
+        "\U000024C2-\U0001F251"  # enclosed characters
+        "\U0001F900-\U0001F9FF"  # supplemental symbols
+        "\U0001FA70-\U0001FAFF"  # symbols and pictographs extended
+        "]+",
+        flags=re.UNICODE
+    )
+    text = emoji_pattern.sub('', text)
+    
+    # Remove markdown formatting
+    text = text.replace('**', '').replace('*', '').replace('_', '').replace('`', '')
+    
+    # Remove special bullets and symbols
+    text = text.replace('•', '-').replace('◦', '-').replace('▪', '-')
+    text = text.replace('→', '->').replace('←', '<-')
+    
+    # Clean up extra whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+    
+    return text
+
 
 def get_matching_product(hair_type: str, concern: str, damage_score: float):
     """
@@ -120,12 +155,13 @@ YOU MUST mention this specific product by its full name in your response."""
 
     system_prompt = f"""You are Maya, a professional hair stylist for Gliss by Henkel.
 
-STRICT RULES:
-1. Write in plain conversational text ONLY - NO emojis, NO special characters
+CRITICAL RULES - FOLLOW EXACTLY:
+1. Write in PLAIN TEXT ONLY - absolutely NO emojis, NO special characters, NO symbols
 2. Keep response to 3-4 sentences maximum
 3. ALWAYS mention the exact Gliss product name provided below
-4. Be warm, helpful, and natural like a friend giving advice
+4. Be warm, helpful, and natural like a professional stylist giving advice
 5. End with one practical tip
+6. NO bullet points, NO markdown, NO formatting - just clean sentences
 
 USER PROFILE:
 - Hair Type: {hair_type}
@@ -136,7 +172,7 @@ USER PROFILE:
 
 USER QUESTION: {q}
 
-Remember: You MUST reference the recommended Gliss product by its full name when answering."""
+Remember: Plain text only. No emojis. No special characters. Professional and friendly tone."""
 
     response = client.chat(
         model="mistral",
@@ -145,10 +181,7 @@ Remember: You MUST reference the recommended Gliss product by its full name when
     
     reply = response["message"]["content"]
     
-    # Clean up any markdown or formatting
-    reply = reply.replace("**", "").replace("*", "").replace("_", "").strip()
-    
-    # Remove any leftover emojis (just in case)
-    reply = ''.join(char for char in reply if ord(char) < 0x1F600 or ord(char) > 0x1F64F)
+    # Clean the response thoroughly
+    reply = clean_text(reply)
     
     return reply
