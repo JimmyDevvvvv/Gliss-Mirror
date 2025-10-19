@@ -43,7 +43,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
       
       setState(() {
         _insights = insights;
-        _history = history.reversed.toList(); // Newest first
+        _history = history.reversed.toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -55,59 +55,163 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
     }
   }
 
+  // Generate dynamic Maya insight based on score
+  String _generateMayaInsight(double avgScore, double delta, int totalScans) {
+    if (totalScans == 0) {
+      return "Start your hair health journey by taking your first scan! I'm here to guide you every step of the way.";
+    }
+    
+    if (totalScans == 1) {
+      if (avgScore < 3.5) {
+        return "Your hair is in excellent condition! Keep up your current routine and let's maintain this healthy state together.";
+      } else if (avgScore < 6.5) {
+        return "Good start! Your hair has room for improvement. Follow my recommendations consistently and we'll see great progress.";
+      } else {
+        return "Don't worry! Your hair needs attention, but I'm here to help you transform it. Let's create a personalized care plan together.";
+      }
+    }
+
+    // Multiple scans - analyze progress
+    if (delta > 2.0) {
+      return "WOW! You've improved by ${delta.toStringAsFixed(1)} points! Your dedication is incredible. Keep following your routine - you're on the path to gorgeous, healthy hair!";
+    } else if (delta > 1.0) {
+      return "Excellent progress! Your hair improved by ${delta.toStringAsFixed(1)} points. This proves your routine is working. Stay consistent and you'll see even better results!";
+    } else if (delta > 0.3) {
+      return "Great job! You're ${delta.toStringAsFixed(1)} points better than when you started. Small improvements add up. Keep using your recommended products!";
+    } else if (delta > -0.3) {
+      if (avgScore < 3.5) {
+        return "You're maintaining excellent hair health with an average of ${avgScore.toStringAsFixed(1)}/10! Your consistency is paying off. Keep doing what you're doing!";
+      } else {
+        return "Your hair is stable at ${avgScore.toStringAsFixed(1)}/10. Let's focus on consistency with your care routine to see more improvement. I believe in you!";
+      }
+    } else if (delta > -1.0) {
+      return "Your hair needs some extra attention - it's ${delta.abs().toStringAsFixed(1)} points lower. Don't worry! Review your routine, avoid heat styling, and deep condition weekly. We'll get back on track!";
+    } else {
+      return "Let's pause and reassess your hair care routine. Your score dropped by ${delta.abs().toStringAsFixed(1)} points. I recommend focusing on gentle care, deep conditioning, and giving your hair a break from styling. Together we'll restore its health!";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("📊 Hair Analytics"),
-        backgroundColor: Colors.pinkAccent,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchData,
-            tooltip: 'Refresh data',
+      backgroundColor: Colors.white,
+      body: Column(
+        children: [
+          _buildHenkelHeader(),
+          Container(
+            color: const Color(0xFFE30613),
+            child: TabBar(
+              controller: _tabController,
+              indicatorColor: Colors.white,
+              indicatorWeight: 3,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white70,
+              tabs: const [
+                Tab(icon: Icon(Icons.insights), text: "Insights"),
+                Tab(icon: Icon(Icons.history), text: "History"),
+              ],
+            ),
+          ),
+          Expanded(child: _buildContent()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHenkelHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: const BoxDecoration(
+        color: Color(0xFFE30613),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          indicatorWeight: 3,
-          tabs: const [
-            Tab(
-              icon: Icon(Icons.insights),
-              text: "Insights",
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Use Image.asset for logo
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(25),
+              ),
+              child: Image.asset(
+                'assets/images/henkel_logo.png',
+                height: 30,
+                errorBuilder: (context, error, stackTrace) {
+                  // Fallback to text if image not found
+                  return const Text(
+                    'Henkel',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFE30613),
+                      letterSpacing: 1.2,
+                    ),
+                  );
+                },
+              ),
             ),
-            Tab(
-              icon: Icon(Icons.history),
-              text: "History",
+            Row(
+              children: [
+                const Text(
+                  '📊 Analytics',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                IconButton(
+                  icon: const Icon(Icons.refresh, color: Colors.white),
+                  onPressed: _fetchData,
+                  tooltip: 'Refresh data',
+                ),
+              ],
             ),
           ],
         ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: Colors.pinkAccent),
-                  SizedBox(height: 16),
-                  Text('Loading data...', style: TextStyle(color: Colors.grey)),
-                ],
-              ),
-            )
-          : _errorMessage != null
-              ? _buildErrorView()
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildInsightsTab(),
-                    _buildHistoryTab(),
-                  ],
-                ),
     );
   }
 
-  // ==================== ERROR VIEW ====================
+  Widget _buildContent() {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: Color(0xFFE30613)),
+            SizedBox(height: 16),
+            Text('Loading data...', style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return _buildErrorView();
+    }
+
+    return TabBarView(
+      controller: _tabController,
+      children: [
+        _buildInsightsTab(),
+        _buildHistoryTab(),
+      ],
+    );
+  }
+
   Widget _buildErrorView() {
     return Center(
       child: Padding(
@@ -115,23 +219,20 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const Icon(Icons.error_outline, size: 64, color: Color(0xFFE30613)),
             const SizedBox(height: 16),
-            Text(
-              'Error loading data',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            Text('Error loading data', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
-            Text(
-              _errorMessage!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey),
-            ),
+            Text(_errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _fetchData,
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE30613),
+                foregroundColor: Colors.white,
+              ),
             ),
           ],
         ),
@@ -139,34 +240,50 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
     );
   }
 
-  // ==================== INSIGHTS TAB ====================
   Widget _buildInsightsTab() {
-    if (_insights == null) {
-      return const Center(child: Text("No insights available"));
+    if (_insights == null || _history.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.info_outline, size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
+              Text("No scan history yet", style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              const Text("Start analyzing your hair to see insights!", style: TextStyle(color: Colors.grey)),
+            ],
+          ),
+        ),
+      );
     }
 
     final avg = _parseDouble(_insights?["average_score"]);
-    final best = _parseDouble(_insights?["best_score"]);
-    final worst = _parseDouble(_insights?["worst_score"]);
-    final trend = _insights?["trend"]?.toString() ?? "Stable ⚪";
-    final insightMsg = _insights?["insight"]?.toString() ?? "No insight available.";
+    final firstScore = _parseDouble(_insights?["first_score"]);
+    final latestScore = _parseDouble(_insights?["latest_score"]);
+    final trend = _insights?["trend"]?.toString() ?? "Stable";
     final total = _parseInt(_insights?["total_scans"]);
-    final delta = _parseDouble(_insights?["delta"]);
+    final delta = _parseDouble(_insights?["change"]);
+
+    // Generate dynamic Maya insight
+    final mayaInsight = _generateMayaInsight(avg, delta, total);
 
     Color trendColor;
     IconData trendIcon;
-    if (trend.contains("🟢") || trend.toLowerCase().contains("improv")) {
-      trendColor = Colors.green;
+    if (trend.toLowerCase().contains("improv")) {
+      trendColor = const Color(0xFF6CC24A);
       trendIcon = Icons.trending_up;
-    } else if (trend.contains("🔴") || trend.toLowerCase().contains("worsen")) {
-      trendColor = Colors.redAccent;
+    } else if (trend.toLowerCase().contains("worsen")) {
+      trendColor = const Color(0xFFE30613);
       trendIcon = Icons.trending_down;
     } else {
-      trendColor = Colors.grey;
+      trendColor = const Color(0xFF00A3E0);
       trendIcon = Icons.trending_flat;
     }
 
     return RefreshIndicator(
+      color: const Color(0xFFE30613),
       onRefresh: _fetchData,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -178,6 +295,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
               "Average Damage Score",
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
+                    color: const Color(0xFF1A1A1A),
                   ),
             ),
             const SizedBox(height: 16),
@@ -202,26 +320,27 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                       style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
+                        color: Color(0xFF1A1A1A),
                       ),
                     ),
-                    const Text(
-                      "/ 10",
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
+                    const Text("/ 10", style: TextStyle(fontSize: 16, color: Colors.grey)),
                   ],
                 ),
               ],
             ),
             const SizedBox(height: 30),
+            
+            // DYNAMIC STATS: First, Latest, Total (NO Best/Worst)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _statCard("Best", best.toStringAsFixed(1), Icons.thumb_up_alt, Colors.green),
-                _statCard("Worst", worst.toStringAsFixed(1), Icons.thumb_down_alt, Colors.redAccent),
-                _statCard("Total", total.toString(), Icons.history, Colors.blueAccent),
+                _statCard("First Scan", firstScore.toStringAsFixed(1), Icons.play_arrow, const Color(0xFF00A3E0)),
+                _statCard("Latest Scan", latestScore.toStringAsFixed(1), Icons.flag, const Color(0xFFE30613)),
+                _statCard("Total Scans", total.toString(), Icons.history, const Color(0xFF6CC24A)),
               ],
             ),
             const SizedBox(height: 25),
+            
             Card(
               color: trendColor.withOpacity(0.1),
               elevation: 3,
@@ -245,28 +364,50 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
               ),
             ),
             const SizedBox(height: 20),
-            if (delta != 0)
+            
+            if (delta > 0)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: delta > 0 ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                  color: const Color(0xFF6CC24A).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: delta > 0 ? Colors.green : Colors.red, width: 2),
+                  border: Border.all(color: const Color(0xFF6CC24A), width: 2),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(delta > 0 ? Icons.arrow_upward : Icons.arrow_downward,
-                        color: delta > 0 ? Colors.green : Colors.red),
+                    const Icon(Icons.arrow_upward, color: Color(0xFF6CC24A)),
                     const SizedBox(width: 8),
                     Text(
-                      delta > 0
-                          ? "Improved by ${delta.abs().toStringAsFixed(1)} points!"
-                          : "Worsened by ${delta.abs().toStringAsFixed(1)} points",
-                      style: TextStyle(
+                      "Improved by ${delta.abs().toStringAsFixed(1)} points!",
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: delta > 0 ? Colors.green : Colors.red,
+                        color: Color(0xFF6CC24A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (delta < 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE30613).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE30613), width: 2),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.arrow_downward, color: Color(0xFFE30613)),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Down by ${delta.abs().toStringAsFixed(1)} points",
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFE30613),
                       ),
                     ),
                   ],
@@ -284,24 +425,25 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                   children: [
                     Icon(Icons.horizontal_rule, color: Colors.grey),
                     SizedBox(width: 8),
-                    Text("Stable results",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey)),
+                    Text("Stable results", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey)),
                   ],
                 ),
               ),
             const SizedBox(height: 25),
+            
+            // DYNAMIC MAYA INSIGHT
             Container(
               width: double.infinity,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Colors.pinkAccent, Colors.purpleAccent],
+                  colors: [Color(0xFFE30613), Color(0xFFC00000)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(15),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.pinkAccent.withOpacity(0.3),
+                    color: const Color(0xFFE30613).withOpacity(0.3),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -315,44 +457,34 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                     children: [
                       Icon(Icons.lightbulb, color: Colors.white, size: 24),
                       SizedBox(width: 8),
-                      Text("Maya's Hair Health Insight",
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                      Text(
+                        "Maya's Hair Health Insight",
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text(insightMsg,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5)),
+                  Text(
+                    mayaInsight,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5),
+                  ),
                 ],
               ),
             ),
-            if (total == 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 30),
-                child: Column(
-                  children: [
-                    const Icon(Icons.info_outline, size: 64, color: Colors.grey),
-                    const SizedBox(height: 16),
-                    Text("No scan history yet", style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 8),
-                    const Text("Start analyzing your hair to see insights!",
-                        style: TextStyle(color: Colors.grey)),
-                  ],
-                ),
-              ),
           ],
         ),
       ),
     );
   }
 
-  // ==================== HISTORY TAB ====================
   Widget _buildHistoryTab() {
     if (_history.isEmpty) {
       return _buildEmptyHistoryView();
     }
 
     return RefreshIndicator(
+      color: const Color(0xFFE30613),
       onRefresh: _fetchData,
       child: Column(
         children: [
@@ -361,13 +493,13 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Colors.pinkAccent, Colors.purpleAccent],
+                colors: [Color(0xFFE30613), Color(0xFFC00000)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.pinkAccent.withOpacity(0.3),
+                  color: const Color(0xFFE30613).withOpacity(0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -465,19 +597,16 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                         const Icon(Icons.favorite, color: Colors.white, size: 16),
                         const SizedBox(width: 6),
                         Text('${damageScore.toStringAsFixed(1)}/10',
-                            style: const TextStyle(
-                                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                       ],
                     ),
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(formattedDate,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      Text(formattedDate, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                       if (timeAgo.isNotEmpty)
-                        Text(timeAgo,
-                            style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                        Text(timeAgo, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
                     ],
                   ),
                 ],
@@ -490,15 +619,14 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(level,
-                    style: TextStyle(
-                        color: _getScoreColor(damageScore), fontWeight: FontWeight.w600, fontSize: 13)),
+                    style: TextStyle(color: _getScoreColor(damageScore), fontWeight: FontWeight.w600, fontSize: 13)),
               ),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(child: _buildInfoChip(Icons.texture, 'Texture', texture, Colors.blue)),
+                  Expanded(child: _buildInfoChip(Icons.texture, 'Texture', texture, const Color(0xFF00A3E0))),
                   const SizedBox(width: 8),
-                  Expanded(child: _buildInfoChip(Icons.healing, 'Care', careLevel, Colors.green)),
+                  Expanded(child: _buildInfoChip(Icons.healing, 'Care', careLevel, const Color(0xFF6CC24A))),
                 ],
               ),
               const SizedBox(height: 8),
@@ -593,8 +721,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
               ),
               const SizedBox(height: 16),
               Text(scan['level']?.toString() ?? 'Unknown',
-                  style: TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.bold, color: _getScoreColor(damageScore))),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _getScoreColor(damageScore))),
               const SizedBox(height: 8),
               Text(formattedDateTime, style: const TextStyle(color: Colors.grey, fontSize: 14)),
               const SizedBox(height: 20),
@@ -608,7 +735,8 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
               ElevatedButton(
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.pinkAccent, minimumSize: const Size(double.infinity, 44)),
+                    backgroundColor: const Color(0xFFE30613),
+                    minimumSize: const Size(double.infinity, 44)),
                 child: const Text('Close'),
               ),
             ],
@@ -691,8 +819,8 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
   }
 
   Color _getScoreColor(double score) {
-    if (score < 3.5) return Colors.green;
-    if (score < 6.5) return Colors.orange;
-    return Colors.red;
+    if (score < 3.5) return const Color(0xFF6CC24A);
+    if (score < 6.5) return const Color(0xFFFDB913);
+    return const Color(0xFFE30613);
   }
 }

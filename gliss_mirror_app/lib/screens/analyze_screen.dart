@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/maya_service.dart';
 import '../screens/maya_analysis_modal.dart';
+import '../screens/pre_analysis_dialog.dart';
 
 class AnalyzeScreen extends StatefulWidget {
   const AnalyzeScreen({super.key});
@@ -23,6 +24,14 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
 
   final ImagePicker _picker = ImagePicker();
 
+  // Show pre-analysis guidelines before picking image
+  Future<void> _showGuidelinesAndPickImage() async {
+    await showPreAnalysisDialog(
+      context: context,
+      onProceed: _pickImage,
+    );
+  }
+
   // Pick image from gallery (works for web + mobile)
   Future<void> _pickImage() async {
     final picked = await _picker.pickImage(source: ImageSource.gallery);
@@ -32,13 +41,13 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
         setState(() {
           _webImage = bytes;
           _imageFile = null;
-          _result = null; // Clear previous results
+          _result = null;
         });
       } else {
         setState(() {
           _imageFile = File(picked.path);
           _webImage = null;
-          _result = null; // Clear previous results
+          _result = null;
         });
       }
     }
@@ -50,7 +59,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select an image first!'),
-          backgroundColor: Colors.orange,
+          backgroundColor: Color(0xFFFDB913),
         ),
       );
       return;
@@ -79,7 +88,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Hair analyzed successfully!'),
-          backgroundColor: Colors.green,
+          backgroundColor: Color(0xFF6CC24A),
           duration: Duration(seconds: 2),
         ),
       );
@@ -88,7 +97,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error analyzing image: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: const Color(0xFFE30613),
           duration: const Duration(seconds: 3),
         ),
       );
@@ -110,23 +119,17 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
         'care_level': _result!['care_level'],
       };
 
-      // Save to backend
       await ApiService.saveScan(scanData);
 
-      // Notify Maya about the new scan
       if (mounted) {
         final mayaService = Provider.of<MayaService>(context, listen: false);
         await mayaService.onScanCompleted(scanData);
 
-        // Show Maya's beautiful analysis modal
         showMayaAnalysisModal(
           context: context,
           scanData: scanData,
           mayaMessage: mayaService.currentMessage,
-          onChatWithMaya: () {
-            // Maya's floating avatar will already be glowing
-            // User just needs to tap it to continue
-          },
+          onChatWithMaya: () {},
         );
       }
     } catch (e) {
@@ -134,7 +137,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to save scan: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: const Color(0xFFE30613),
           ),
         );
       }
@@ -144,45 +147,97 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      backgroundColor: Colors.white,
+      body: Column(
+        children: [
+          // Henkel Header
+          _buildHenkelHeader(),
+          
+          // Main content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Hair Analysis',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A1A),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Upload a photo to analyze your hair health',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  _buildImagePreview(),
+                  const SizedBox(height: 20),
+                  _buildActionButtons(),
+                  const SizedBox(height: 24),
+
+                  if (isLoading) _buildLoadingState(),
+                  if (_result != null && !isLoading) _buildResults(),
+
+                  const SizedBox(height: 100),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHenkelHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      decoration: const BoxDecoration(
+        color: Color(0xFFE30613),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Header
-            const Text(
-              'Hair Analysis',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: Image.asset(
+                'assets/images/henkel_logo.png',
+                height: 36,
+                errorBuilder: (context, error, stackTrace) {
+                  // Fallback to text if image not found
+                  return const Text(
+                    'Henkel',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFE30613),
+                      letterSpacing: 1.2,
+                    ),
+                  );
+                },
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Upload a photo to analyze your hair health',
-              style: TextStyle(
-                fontSize: 15,
-                color: Colors.grey.shade600,
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Image preview
-            _buildImagePreview(),
-
-            const SizedBox(height: 20),
-
-            // Action buttons
-            _buildActionButtons(),
-
-            const SizedBox(height: 24),
-
-            // Results
-            if (isLoading) _buildLoadingState(),
-            if (_result != null && !isLoading) _buildResults(),
-
-            const SizedBox(height: 100), // Space for floating Maya
           ],
         ),
       ),
@@ -196,7 +251,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
         color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.grey.shade300,
+          color: const Color(0xFFE30613).withOpacity(0.3),
           width: 2,
         ),
       ),
@@ -233,19 +288,18 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
   Widget _buildActionButtons() {
     return Column(
       children: [
-        // Pick Image Button
         SizedBox(
           width: double.infinity,
           height: 54,
           child: ElevatedButton.icon(
-            onPressed: _pickImage,
+            onPressed: _showGuidelinesAndPickImage,
             icon: const Icon(Icons.photo_library, size: 22),
             label: const Text(
               'Select Hair Photo',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
+              backgroundColor: const Color(0xFF00A3E0),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -257,7 +311,6 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
 
         const SizedBox(height: 12),
 
-        // Analyze Button
         SizedBox(
           width: double.infinity,
           height: 54,
@@ -271,7 +324,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.pinkAccent,
+              backgroundColor: const Color(0xFFE30613),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -295,7 +348,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: const Color(0xFF6CC24A),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -319,7 +372,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
       child: Column(
         children: [
           const CircularProgressIndicator(
-            color: Colors.pinkAccent,
+            color: Color(0xFFE30613),
             strokeWidth: 3,
           ),
           const SizedBox(height: 20),
@@ -366,21 +419,20 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.assessment, color: Colors.pinkAccent, size: 28),
+              const Icon(Icons.assessment, color: Color(0xFFE30613), size: 28),
               const SizedBox(width: 12),
               const Text(
                 'Analysis Results',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: Color(0xFF1A1A1A),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 20),
 
-          // Score circle
           Center(
             child: Stack(
               alignment: Alignment.center,
@@ -421,7 +473,6 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
 
           const SizedBox(height: 20),
 
-          // Level badge
           Center(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -444,7 +495,6 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
           const Divider(),
           const SizedBox(height: 16),
 
-          // Details
           _buildDetailRow(Icons.texture, 'Texture', texture),
           _buildDetailRow(Icons.warning_amber, 'Concern', concern),
           _buildDetailRow(Icons.healing, 'Care Level', careLevel),
@@ -463,10 +513,10 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: Colors.pinkAccent.withOpacity(0.1),
+              color: const Color(0xFFE30613).withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: Colors.pinkAccent, size: 22),
+            child: Icon(icon, color: const Color(0xFFE30613), size: 22),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -487,7 +537,7 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: Color(0xFF1A1A1A),
                   ),
                 ),
               ],
@@ -507,8 +557,8 @@ class _AnalyzeScreenState extends State<AnalyzeScreen> {
   }
 
   Color _getScoreColor(double score) {
-    if (score < 3.5) return Colors.green;
-    if (score < 6.5) return Colors.orange;
-    return Colors.red;
+    if (score < 3.5) return const Color(0xFF6CC24A);
+    if (score < 6.5) return const Color(0xFFFDB913);
+    return const Color(0xFFE30613);
   }
 }

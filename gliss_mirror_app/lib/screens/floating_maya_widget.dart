@@ -97,12 +97,13 @@ class _FloatingMayaState extends State<FloatingMaya> with TickerProviderStateMix
         // Chat panel (slides up from bottom)
         if (_isChatOpen) _buildChatPanel(),
 
-        // Floating avatar button
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: _buildMayaAvatar(),
-        ),
+        // Floating avatar button - HIDDEN when chat is open
+        if (!_isChatOpen)
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: _buildMayaAvatar(),
+          ),
       ],
     );
   }
@@ -114,7 +115,7 @@ class _FloatingMayaState extends State<FloatingMaya> with TickerProviderStateMix
         alignment: Alignment.center,
         children: [
           // Outer glowing ring (when Maya has something to say)
-          if (_mayaService.hasUnreadMessage && !_isChatOpen)
+          if (_mayaService.hasUnreadMessage)
             AnimatedBuilder(
               animation: _glowController,
               builder: (context, child) {
@@ -201,7 +202,7 @@ class _FloatingMayaState extends State<FloatingMaya> with TickerProviderStateMix
           ),
 
           // Unread indicator badge
-          if (_mayaService.hasUnreadMessage && !_isChatOpen)
+          if (_mayaService.hasUnreadMessage)
             Positioned(
               right: 2,
               top: 2,

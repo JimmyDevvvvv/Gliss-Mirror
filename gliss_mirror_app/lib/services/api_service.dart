@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
 class ApiService {
-  static const String baseUrl = "http://127.0.0.1:8000";
+  static const String baseUrl = "http://10.76.185.48:8000";
 
   // ---------- HEALTH CHECK ----------
   static Future<Map<String, dynamic>> healthCheck() async {
@@ -207,9 +207,6 @@ class ApiService {
       throw Exception("Failed to analyze hair");
     }
   }
-
-
-
 
 
 

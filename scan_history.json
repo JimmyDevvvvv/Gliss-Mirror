@@ -1,11 +1,29 @@
 [
     {
-        "timestamp": "2025-10-18T05:36:13.778998",
-        "damage_score": 6.9,
-        "level": "Severe Damage",
-        "detected_texture": "Coarse",
-        "recommended_product": "Ultimate Repair",
-        "primary_concern": "Breakage",
-        "care_level": "Deep Care"
+        "timestamp": "2025-10-18T12:17:03.257701",
+        "damage_score": 1.5,
+        "level": "Healthy",
+        "detected_texture": "Medium",
+        "recommended_product": "Supreme Length",
+        "primary_concern": "Moisture",
+        "care_level": "Gentle"
+    },
+    {
+        "timestamp": "2025-10-18T12:26:57.813193",
+        "damage_score": 1.5,
+        "level": "Healthy",
+        "detected_texture": "Medium",
+        "recommended_product": "Supreme Length",
+        "primary_concern": "Moisture",
+        "care_level": "Gentle"
+    },
+    {
+        "timestamp": "2025-10-18T12:27:53.967570",
+        "damage_score": 1.5,
+        "level": "Healthy",
+        "detected_texture": "Medium",
+        "recommended_product": "Supreme Length",
+        "primary_concern": "Moisture",
+        "care_level": "Gentle"
     }
 ]
